@@ -7,7 +7,7 @@ from farm_rotation.rotation.generator import generate_rotations
 
 def analyze_farm(lat, lon, soil_manual=None, weights=None):
     """
-    Main entry point for the frontend.
+    Main entry point.
     Always returns a consistent dictionary.
     """
     try:
