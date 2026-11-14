@@ -82,8 +82,6 @@ if st.session_state.data and st.session_state.filtered:
     st.success(f"Terrain: {landscape['terrain']} ({landscape['elevation_m']} m)")
 
     st.subheader(f"Top Recommendations ({len(filtered)} crops)")
-
-    # Show crop list
     for i, r in enumerate(filtered[:10], 1):
         green = int(200 * (r["score"] / 100)) + 55
         color = f"rgb(0, {green}, 0)"
@@ -98,20 +96,35 @@ if st.session_state.data and st.session_state.filtered:
             unsafe_allow_html=True
         )
 
-    # Explanation selector (more reliable than buttons)
+    # Explanation with debug
     st.subheader("Get explanation")
     crop_names = [r["crop"] for r in filtered[:10]]
     selected = st.selectbox("Choose a crop to explain", ["-- select --"] + crop_names)
 
     if selected != "-- select --":
-        # Find the selected crop data
         selected_crop = next(r for r in filtered if r["crop"] == selected)
+        
+        st.write("**Debug info:**")
+        st.write(f"- Crop: {selected_crop['crop']}")
+        st.write(f"- Score: {selected_crop['score']}")
+        st.write(f"- Has crop_data: {bool(selected_crop.get('crop_data'))}")
+        
         try:
             climate = get_climate(lat, lon)
+            st.write(f"- Climate: {climate}")
+            
             explanation = explain_crop(selected_crop["crop_data"], selected_crop["score"], climate)
-            st.info(explanation)
+            st.write(f"- Explanation length: {len(explanation) if explanation else 0}")
+            
+            if explanation and explanation.strip():
+                st.info(explanation)
+            else:
+                st.warning("explain_crop returned empty or whitespace")
+                st.code(repr(explanation))
         except Exception as e:
-            st.error(f"Explanation failed: {e}")
+            st.error(f"Exception: {type(e).__name__}: {e}")
+            import traceback
+            st.code(traceback.format_exc())
 
     st.subheader("Suggested Rotations (3 years)")
     for idx, rot in enumerate(rotations[:3], 1):
