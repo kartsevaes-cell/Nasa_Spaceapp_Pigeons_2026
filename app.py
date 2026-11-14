@@ -73,5 +73,9 @@ if st.sidebar.button("Analyze"):
                 """,
                 unsafe_allow_html=True
             )
+
             if st.button(f"Why {r['crop']}?", key=r['crop']):
+                climate = get_climate(lat, lon)
+                explanation = explain_crop(r["crop_data"], r["score"], climate)
+                st.info(explanation)
                
