@@ -1,5 +1,6 @@
 import streamlit as st
 from farm_rotation.services import analyze_farm
+from farm_rotation.services import analyze_farm, explain_crop
 
 st.set_page_config(page_title="Farm Rotation", layout="wide")
 st.title("Farm Rotation Decision Support")
