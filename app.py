@@ -3,6 +3,7 @@ import folium
 from streamlit_folium import st_folium
 from farm_rotation.services import analyze_farm, explain_crop, analyze_farm_with_rotations
 from farm_rotation.adapters.nasa_power import get_climate
+import pandas as pd
 
 st.set_page_config(page_title="Farm Rotation", layout="wide")
 st.title("Farm Rotation Decision Support")
@@ -23,6 +24,17 @@ soil_manual = {
     "ph": ph,
 }
 
+st.sidebar.header("Priorities")
+w_climate = st.sidebar.slider("Climate fit", 0.0, 1.0, 0.6)
+w_soil = st.sidebar.slider("Soil health", 0.0, 1.0, 0.25)
+w_water = st.sidebar.slider("Water conservation", 0.0, 1.0, 0.15)
+
+weights = {
+    "climate": w_climate,
+    "soil_health": w_soil,
+    "water": w_water,
+}
+
 st.sidebar.header("Filters")
 min_score = st.sidebar.slider("Minimum score", 0, 100, 50)
 only_nfix = st.sidebar.checkbox("Nitrogen-fixing only", value=False)
@@ -36,7 +48,7 @@ m = folium.Map(location=[lat, lon], zoom_start=6)
 
 if st.sidebar.button("Analyze"):
     with st.spinner("Fetching NASA data and scoring crops..."):
-        results = analyze_farm(lat, lon, soil_manual)
+        results = analyze_farm(lat, lon, soil_manual, weights)
     
     # Apply filters
     filtered = []
@@ -96,6 +108,19 @@ if st.sidebar.button("Analyze"):
             names = " → ".join([c["crop"] for c in rot])
             avg_score = sum(c["score"] for c in rot) / len(rot)
             st.markdown(f"**Rotation {idx}:** {names}  \nAverage score: {avg_score:.0f}/100")
+
+        # Export CSV
+        export_df = pd.DataFrame([
+            {"crop": r["crop"], "score": r["score"], "nitrogen_fixing": r["nitrogen_fixing"]}
+            for r in filtered
+        ])
+        csv = export_df.to_csv(index=False)
+        st.download_button(
+            label="Download results as CSV",
+            data=csv,
+            file_name="crop_recommendations.csv",
+            mime="text/csv",
+        )
 else:
     folium.Marker([lat, lon], popup="Selected location").add_to(m)
 
