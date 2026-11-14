@@ -143,3 +143,40 @@ if st.session_state.data and st.session_state.filtered:
         file_name="crop_recommendations.csv",
         mime="text/csv",
     )
+
+    # Simple explanation (no external function)
+    st.subheader("Get explanation")
+    crop_names = [r["crop"] for r in filtered[:10]]
+    selected = st.selectbox("Choose a crop to explain", ["-- select --"] + crop_names)
+
+    if selected != "-- select --":
+        selected_crop = next(r for r in filtered if r["crop"] == selected)
+        score = selected_crop["score"]
+        crop_data = selected_crop.get("crop_data", {})
+
+        # Build explanation directly here
+        lines = []
+        lines.append(f"{selected} scored {score}/100.")
+
+        if score >= 80:
+            lines.append("This is a strong match for the location.")
+        elif score >= 60:
+            lines.append("This is a reasonable option.")
+        else:
+            lines.append("This crop is not well suited here.")
+
+        tmin = crop_data.get("temp_min_c")
+        tmax = crop_data.get("temp_max_c")
+        if tmin is not None and tmax is not None:
+            lines.append(f"Preferred temperature range: {tmin}–{tmax}°C.")
+
+        rmin = crop_data.get("rainfall_min_mm")
+        rmax = crop_data.get("rainfall_max_mm")
+        if rmin is not None and rmax is not None:
+            lines.append(f"Preferred rainfall: {rmin}–{rmax} mm.")
+
+        if selected_crop.get("nitrogen_fixing"):
+            lines.append("It fixes nitrogen, which benefits soil health.")
+
+        explanation = " ".join(lines)
+        st.info(explanation)
