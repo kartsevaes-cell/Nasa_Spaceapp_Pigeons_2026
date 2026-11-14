@@ -1,7 +1,24 @@
 from farm_rotation.adapters.nasa_power import get_climate
 from farm_rotation.adapters.crops import load_crops
 from farm_rotation.rotation.scoring import score_crop
+from farm_rotation.adapters.soil import get_soil
 
+def analyze_farm(lat, lon, soil_manual=None):
+    climate = get_climate(lat, lon)
+    soil = get_soil(lat, lon, soil_manual)
+    crops = load_crops()
+    
+    results = []
+    for _, crop in crops.iterrows():
+        score = score_crop(crop, climate, soil)  # pass soil
+        results.append({
+            "crop": crop["crop_name"],
+            "score": score,
+            "nitrogen_fixing": crop["nitrogen_fixing"],
+            "crop_data": crop.to_dict()
+        })
+    
+    return sorted(results, key=lambda x: x["score"], reverse=True)
 def analyze_farm(lat, lon):
     climate = get_climate(lat, lon)
     crops = load_crops()
