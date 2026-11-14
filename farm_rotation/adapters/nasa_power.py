@@ -4,6 +4,10 @@ from farm_rotation.cache import get_cached_climate, save_climate
 POWER_BASE_URL = "https://power.larc.nasa.gov/api/temporal/climatology/point"
 
 def get_climate(lat: float, lon: float) -> dict:
+    """
+    Fetch average climate data from NASA POWER.
+    Uses local cache when available.
+    """
     # Check cache first
     cached = get_cached_climate(lat, lon)
     if cached:
@@ -28,6 +32,6 @@ def get_climate(lat: float, lon: float) -> dict:
         "solar_radiation": round(properties["ALLSKY_SFC_SW_DWN"]["ANN"], 2),
     }
     
-    # Save to cache
+    # Save to cache for next time
     save_climate(lat, lon, result)
     return result
