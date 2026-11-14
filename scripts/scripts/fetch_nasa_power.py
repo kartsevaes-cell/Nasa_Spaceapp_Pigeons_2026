@@ -2,7 +2,13 @@ import requests
 import json
 from pathlib import Path
 
-# API endpoint and parameters
+# Full path from project root
+PROJECT_ROOT = Path(__file__).parent.parent
+DATA_DIR = PROJECT_ROOT / "data"
+DATA_DIR.mkdir(exist_ok=True)
+
+OUTPUT_FILE = DATA_DIR / "nasa_power_climatology.json"
+
 url = "https://power.larc.nasa.gov/api/temporal/climatology/point"
 params = {
     "parameters": "T2M,T2M_MAX,T2M_MIN,PRECTOTCORR,RH2M,ALLSKY_SFC_SW_DWN",
@@ -13,26 +19,17 @@ params = {
 }
 
 def fetch_nasa_power():
-    """Fetch climatology data from NASA POWER API and save to data/ folder."""
     print("Fetching data from NASA POWER API...")
-    
     response = requests.get(url, params=params)
-    response.raise_for_status()  # Raise an error for bad status codes
-    
+    response.raise_for_status()
     data = response.json()
-    
-    # Ensure the data directory exists
-    data_dir = Path("data")
-    data_dir.mkdir(exist_ok=True)
-    
-    # Save the full response
-    output_path = data_dir / "nasa_power_climatology.json"
-    with open(output_path, "w", encoding="utf-8") as f:
+
+    with open(OUTPUT_FILE, "w", encoding="utf-8") as f:
         json.dump(data, f, indent=2)
-    
-    print(f"Data saved to: {output_path}")
-    
-    # Optional: print a quick summary
+
+    print(f"Saved to: {OUTPUT_FILE}")
+
+    # Quick summary
     params_data = data["properties"]["parameter"]
     print("\nAnnual averages:")
     for param, values in params_data.items():
