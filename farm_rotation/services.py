@@ -2,55 +2,49 @@ from farm_rotation.adapters.nasa_power import get_climate
 from farm_rotation.adapters.crops import load_crops
 from farm_rotation.rotation.scoring import score_crop
 from farm_rotation.adapters.soil import get_soil
-from farm_rotation.rotation.generator import generate_rotations
 from farm_rotation.adapters.landscape import get_landscape
+from farm_rotation.rotation.generator import generate_rotations
 
 def analyze_farm(lat, lon, soil_manual=None, weights=None):
-    climate = get_climate(lat, lon)
-    soil = get_soil(lat, lon, soil_manual)
-    landscape = get_landscape(lat, lon)
-    crops = load_crops()
-    
-    results = []
-    for _, crop in crops.iterrows():
-        score = score_crop(crop, climate, soil, weights)
-        results.append({
-            "crop": crop["crop_name"],
-            "score": score,
-            "nitrogen_fixing": crop["nitrogen_fixing"],
-            "crop_data": crop.to_dict()
-        })
-    
-    return sorted(results, key=lambda x: x["score"], reverse=True), landscape
-def analyze_farm(lat, lon, soil_manual=None):
-    climate = get_climate(lat, lon)
-    soil = get_soil(lat, lon, soil_manual)
-    crops = load_crops()
-    
-    results = []
-    for _, crop in crops.iterrows():
-        score = score_crop(crop, climate, soil)
-        results.append({
-            "crop": crop["crop_name"],
-            "score": score,
-            "nitrogen_fixing": crop["nitrogen_fixing"],
-            "crop_data": crop.to_dict()
-        })
-    
-    return sorted(results, key=lambda x: x["score"], reverse=True)
+    """
+    Main entry point for the frontend.
+    Always returns a consistent dictionary.
+    """
+    try:
+        climate = get_climate(lat, lon)
+        soil = get_soil(lat, lon, soil_manual)
+        landscape = get_landscape(lat, lon)
+        crops = load_crops()
 
-def analyze_farm_with_rotations(lat, lon, soil_manual=None, years=3):
-    results = analyze_farm(lat, lon, soil_manual)
-    rotations = generate_rotations(results, years=years)
-    return {
-        "crops": results,
-        "rotations": rotations
-    }
+        results = []
+        for _, crop in crops.iterrows():
+            score = score_crop(crop, climate, soil, weights)
+            results.append({
+                "crop": crop["crop_name"],
+                "score": score,
+                "nitrogen_fixing": bool(crop.get("nitrogen_fixing")),
+                "category": crop.get("category"),
+                "crop_data": crop.to_dict()
+            })
+
+        results = sorted(results, key=lambda x: x["score"], reverse=True)
+        rotations = generate_rotations(results)
+
+        return {
+            "success": True,
+            "climate": climate,
+            "soil": soil,
+            "landscape": landscape,
+            "crops": results,
+            "rotations": rotations,
+        }
+    except Exception as e:
+        return {
+            "success": False,
+            "error": str(e)
+        }
 
 def explain_crop(crop: dict, score: int, climate: dict) -> str:
-    """
-    Detailed rule-based explanation using multiple crop and climate variables.
-    """
     name = crop.get("crop_name", "This crop")
     temp = climate["temperature_c"]
     rain = climate["precipitation_mm"]
@@ -84,4 +78,20 @@ def explain_crop(crop: dict, score: int, climate: dict) -> str:
         elif rain < rmin:
             reasons.append(f"Rainfall ({rain:.0f} mm) is lower than recommended ({rmin} mm). Irrigation may be needed.")
         else:
-            reasons.append(f"Rainfall ({rain:.0f} mm) is higher than typical ({rmax} mm).
+            reasons.append(f"Rainfall ({rain:.0f} mm) is higher than typical ({rmax} mm). Drainage may be important.")
+    
+    nfix = str(crop.get("nitrogen_fixing", "")).lower()
+    if nfix in ("true", "1", "yes"):
+        reasons.append("It fixes nitrogen, which helps improve soil health for following crops.")
+    
+    water = str(crop.get("water_use", "")).lower()
+    if water == "high" and rain < 600:
+        reasons.append("This is a high water-use crop and rainfall is limited.")
+    elif water == "low":
+        reasons.append("It has relatively low water requirements.")
+    
+    soil_score = crop.get("soil_health_score")
+    if soil_score and soil_score >= 4:
+        reasons.append("It has a strong positive effect on long-term soil health.")
+    
+    return " ".join(reasons)
