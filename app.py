@@ -48,7 +48,8 @@ m = folium.Map(location=[lat, lon], zoom_start=6)
 
 if st.sidebar.button("Analyze"):
     with st.spinner("Fetching NASA data and scoring crops..."):
-        results = analyze_farm(lat, lon, soil_manual, weights)
+        results, landscape = analyze_farm(lat, lon, soil_manual, weights)
+        st.sidebar.success(f"Terrain: {landscape['terrain']} ({landscape['elevation_m']} m)")
     
     # Apply filters
     filtered = []
@@ -80,6 +81,9 @@ if st.sidebar.button("Analyze"):
             fill_opacity=0.7,
             popup=f"Best: {top['crop']} ({score}/100)"
         ).add_to(m)
+
+        # Terrain info
+        st.info(f"Location terrain: **{landscape['terrain']}** — Elevation: {landscape['elevation_m']} m")
 
         # Results list
         st.subheader(f"Top Recommendations ({len(filtered)} crops)")
