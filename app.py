@@ -41,7 +41,7 @@ category = st.sidebar.selectbox(
     ["All", "Cereal", "Legume", "Oilseed", "Root/Tuber", "Cover Crop", "Forage/Legume"]
 )
 
-st.write(f"**Selected location:** {lat}, {lon}")
+st.write(f"**Selected coordinates:** {lat}, {lon}")
 
 if st.sidebar.button("Analyze"):
     with st.spinner("Fetching data and scoring crops..."):
@@ -55,8 +55,7 @@ if st.sidebar.button("Analyze"):
     landscape = data["landscape"]
     rotations = data["rotations"]
 
-    st.sidebar.success(f"Terrain: {landscape['terrain']} ({landscape['elevation_m']} m)")
-    st.info(f"Location terrain: **{landscape['terrain']}** — Elevation: {landscape['elevation_m']} m")
+    st.success(f"Terrain: {landscape['terrain']} ({landscape['elevation_m']} m)")
 
     filtered = []
     for r in results:
