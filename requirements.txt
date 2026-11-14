@@ -3,3 +3,4 @@ pandas
 requests
 pyyaml
 pydantic
+pip install streamlit-folium folium
