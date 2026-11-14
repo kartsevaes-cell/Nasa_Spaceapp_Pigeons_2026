@@ -7,10 +7,14 @@ st.set_page_config(page_title="Farm Rotation", layout="wide")
 st.title("Farm Rotation Decision Support")
 
 # Session state
-if "data" not in st.session_state:
-    st.session_state.data = None
+if "results_ready" not in st.session_state:
+    st.session_state.results_ready = False
 if "filtered" not in st.session_state:
     st.session_state.filtered = []
+if "landscape" not in st.session_state:
+    st.session_state.landscape = {}
+if "rotations" not in st.session_state:
+    st.session_state.rotations = []
 
 # Sidebar
 st.sidebar.header("Location")
@@ -49,6 +53,7 @@ category = st.sidebar.selectbox(
 
 st.write(f"**Selected coordinates:** {lat}, {lon}")
 
+# Analyze button
 if st.sidebar.button("Analyze"):
     with st.spinner("Fetching data and scoring crops..."):
         data = analyze_farm(lat, lon, soil_manual, weights)
@@ -57,9 +62,7 @@ if st.sidebar.button("Analyze"):
         st.error(f"Error: {data.get('error', 'Unknown error')}")
         st.stop()
 
-    st.session_state.data = data
     results = data["crops"]
-
     filtered = []
     for r in results:
         if r["score"] < min_score:
@@ -70,16 +73,19 @@ if st.sidebar.button("Analyze"):
         if category != "All" and category.lower() not in crop_cat:
             continue
         filtered.append(r)
+
     st.session_state.filtered = filtered
+    st.session_state.landscape = data["landscape"]
+    st.session_state.rotations = data["rotations"]
+    st.session_state.results_ready = True
 
-# Display results
-if st.session_state.data and st.session_state.filtered:
-    data = st.session_state.data
+# Always show results if we have them
+if st.session_state.results_ready and st.session_state.filtered:
+    landscape = st.session_state.landscape
     filtered = st.session_state.filtered
-    landscape = data["landscape"]
-    rotations = data["rotations"]
+    rotations = st.session_state.rotations
 
-    st.success(f"Terrain: {landscape['terrain']} ({landscape['elevation_m']} m)")
+    st.success(f"Terrain: {landscape.get('terrain', 'Unknown')} ({landscape.get('elevation_m', '?')} m)")
 
     st.subheader(f"Top Recommendations ({len(filtered)} crops)")
     for i, r in enumerate(filtered[:10], 1):
@@ -96,35 +102,38 @@ if st.session_state.data and st.session_state.filtered:
             unsafe_allow_html=True
         )
 
-    # Explanation with debug
-    st.subheader("Get explanation")
+    # Explanation
+    st.subheader("Explanation")
     crop_names = [r["crop"] for r in filtered[:10]]
-    selected = st.selectbox("Choose a crop to explain", ["-- select --"] + crop_names)
+    selected = st.selectbox("Choose a crop", ["-- select --"] + crop_names, key="explain_select")
 
     if selected != "-- select --":
         selected_crop = next(r for r in filtered if r["crop"] == selected)
-        
-        st.write("**Debug info:**")
-        st.write(f"- Crop: {selected_crop['crop']}")
-        st.write(f"- Score: {selected_crop['score']}")
-        st.write(f"- Has crop_data: {bool(selected_crop.get('crop_data'))}")
-        
-        try:
-            climate = get_climate(lat, lon)
-            st.write(f"- Climate: {climate}")
-            
-            explanation = explain_crop(selected_crop["crop_data"], selected_crop["score"], climate)
-            st.write(f"- Explanation length: {len(explanation) if explanation else 0}")
-            
-            if explanation and explanation.strip():
-                st.info(explanation)
-            else:
-                st.warning("explain_crop returned empty or whitespace")
-                st.code(repr(explanation))
-        except Exception as e:
-            st.error(f"Exception: {type(e).__name__}: {e}")
-            import traceback
-            st.code(traceback.format_exc())
+        score = selected_crop["score"]
+        crop_data = selected_crop.get("crop_data", {})
+
+        lines = [f"{selected} scored {score}/100."]
+        if score >= 80:
+            lines.append("This is a strong match for the location.")
+        elif score >= 60:
+            lines.append("This is a reasonable option.")
+        else:
+            lines.append("This crop is not well suited here.")
+
+        tmin = crop_data.get("temp_min_c")
+        tmax = crop_data.get("temp_max_c")
+        if tmin is not None and tmax is not None:
+            lines.append(f"Preferred temperature: {tmin}–{tmax}°C.")
+
+        rmin = crop_data.get("rainfall_min_mm")
+        rmax = crop_data.get("rainfall_max_mm")
+        if rmin is not None and rmax is not None:
+            lines.append(f"Preferred rainfall: {rmin}–{rmax} mm.")
+
+        if selected_crop.get("nitrogen_fixing"):
+            lines.append("It fixes nitrogen and helps soil health.")
+
+        st.info(" ".join(lines))
 
     st.subheader("Suggested Rotations (3 years)")
     for idx, rot in enumerate(rotations[:3], 1):
@@ -143,40 +152,3 @@ if st.session_state.data and st.session_state.filtered:
         file_name="crop_recommendations.csv",
         mime="text/csv",
     )
-
-    # Simple explanation (no external function)
-    st.subheader("Get explanation")
-    crop_names = [r["crop"] for r in filtered[:10]]
-    selected = st.selectbox("Choose a crop to explain", ["-- select --"] + crop_names)
-
-    if selected != "-- select --":
-        selected_crop = next(r for r in filtered if r["crop"] == selected)
-        score = selected_crop["score"]
-        crop_data = selected_crop.get("crop_data", {})
-
-        # Build explanation directly here
-        lines = []
-        lines.append(f"{selected} scored {score}/100.")
-
-        if score >= 80:
-            lines.append("This is a strong match for the location.")
-        elif score >= 60:
-            lines.append("This is a reasonable option.")
-        else:
-            lines.append("This crop is not well suited here.")
-
-        tmin = crop_data.get("temp_min_c")
-        tmax = crop_data.get("temp_max_c")
-        if tmin is not None and tmax is not None:
-            lines.append(f"Preferred temperature range: {tmin}–{tmax}°C.")
-
-        rmin = crop_data.get("rainfall_min_mm")
-        rmax = crop_data.get("rainfall_max_mm")
-        if rmin is not None and rmax is not None:
-            lines.append(f"Preferred rainfall: {rmin}–{rmax} mm.")
-
-        if selected_crop.get("nitrogen_fixing"):
-            lines.append("It fixes nitrogen, which benefits soil health.")
-
-        explanation = " ".join(lines)
-        st.info(explanation)
