@@ -3,7 +3,25 @@ from farm_rotation.adapters.crops import load_crops
 from farm_rotation.rotation.scoring import score_crop
 from farm_rotation.adapters.soil import get_soil
 from farm_rotation.rotation.generator import generate_rotations
+from farm_rotation.adapters.landscape import get_landscape
 
+def analyze_farm(lat, lon, soil_manual=None, weights=None):
+    climate = get_climate(lat, lon)
+    soil = get_soil(lat, lon, soil_manual)
+    landscape = get_landscape(lat, lon)
+    crops = load_crops()
+    
+    results = []
+    for _, crop in crops.iterrows():
+        score = score_crop(crop, climate, soil, weights)
+        results.append({
+            "crop": crop["crop_name"],
+            "score": score,
+            "nitrogen_fixing": crop["nitrogen_fixing"],
+            "crop_data": crop.to_dict()
+        })
+    
+    return sorted(results, key=lambda x: x["score"], reverse=True), landscape
 def analyze_farm(lat, lon, soil_manual=None):
     climate = get_climate(lat, lon)
     soil = get_soil(lat, lon, soil_manual)
