@@ -12,6 +12,17 @@ st.sidebar.header("Location")
 lat = st.sidebar.number_input("Latitude", value=41.6, format="%.4f")
 lon = st.sidebar.number_input("Longitude", value=-93.6, format="%.4f")
 
+st.sidebar.header("Soil (optional)")
+soil_type = st.sidebar.selectbox("Soil type", ["Loam", "Clay", "Sandy", "Silt", "Unknown"])
+drainage = st.sidebar.selectbox("Drainage", ["Good", "Moderate", "Poor"])
+ph = st.sidebar.slider("Soil pH", 4.0, 8.5, 6.5)
+
+soil_manual = {
+    "soil_type": soil_type,
+    "drainage": drainage,
+    "ph": ph,
+}
+
 st.sidebar.header("Filters")
 min_score = st.sidebar.slider("Minimum score", 0, 100, 50)
 only_nfix = st.sidebar.checkbox("Nitrogen-fixing only", value=False)
@@ -25,7 +36,7 @@ m = folium.Map(location=[lat, lon], zoom_start=6)
 
 if st.sidebar.button("Analyze"):
     with st.spinner("Fetching NASA data and scoring crops..."):
-        results = analyze_farm(lat, lon)
+        results = analyze_farm(lat, lon, soil_manual)   # soil added here
     
     # Apply filters
     filtered = []
@@ -73,9 +84,12 @@ if st.sidebar.button("Analyze"):
                 """,
                 unsafe_allow_html=True
             )
-
             if st.button(f"Why {r['crop']}?", key=r['crop']):
                 climate = get_climate(lat, lon)
                 explanation = explain_crop(r["crop_data"], r["score"], climate)
                 st.info(explanation)
-               
+else:
+    folium.Marker([lat, lon], popup="Selected location").add_to(m)
+
+# Display map
+st_folium(m, width=700, height=450)
