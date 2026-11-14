@@ -12,7 +12,8 @@ def analyze_farm(lat, lon):
         results.append({
             "crop": crop["crop_name"],
             "score": score,
-            "nitrogen_fixing": crop["nitrogen_fixing"]
+            "nitrogen_fixing": crop["nitrogen_fixing"],
+            "crop_data": crop.to_dict()   # keep full data for explanations
         })
     
     return sorted(results, key=lambda x: x["score"], reverse=True)
