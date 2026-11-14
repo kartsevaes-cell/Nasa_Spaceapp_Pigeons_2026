@@ -6,7 +6,7 @@ from farm_rotation.adapters.nasa_power import get_climate
 st.set_page_config(page_title="Farm Rotation", layout="wide")
 st.title("Farm Rotation Decision Support")
 
-# Sidebar (same as before)
+# Sidebar
 st.sidebar.header("Location")
 lat = st.sidebar.number_input("Latitude", value=41.6, format="%.4f")
 lon = st.sidebar.number_input("Longitude", value=-93.6, format="%.4f")
@@ -41,9 +41,7 @@ category = st.sidebar.selectbox(
     ["All", "Cereal", "Legume", "Oilseed", "Root/Tuber", "Cover Crop", "Forage/Legume"]
 )
 
-# Simple built-in map (no external tile requests)
-st.subheader("Location")
-st.map(pd.DataFrame({"lat": [lat], "lon": [lon]}), zoom=6)
+st.write(f"**Selected location:** {lat}, {lon}")
 
 if st.sidebar.button("Analyze"):
     with st.spinner("Fetching data and scoring crops..."):
@@ -58,6 +56,7 @@ if st.sidebar.button("Analyze"):
     rotations = data["rotations"]
 
     st.sidebar.success(f"Terrain: {landscape['terrain']} ({landscape['elevation_m']} m)")
+    st.info(f"Location terrain: **{landscape['terrain']}** — Elevation: {landscape['elevation_m']} m")
 
     filtered = []
     for r in results:
@@ -73,8 +72,6 @@ if st.sidebar.button("Analyze"):
     if not filtered:
         st.warning("No crops match the filters.")
     else:
-        st.info(f"Location terrain: **{landscape['terrain']}** — Elevation: {landscape['elevation_m']} m")
-
         st.subheader(f"Top Recommendations ({len(filtered)} crops)")
         for i, r in enumerate(filtered[:10], 1):
             green = int(200 * (r["score"] / 100)) + 55
