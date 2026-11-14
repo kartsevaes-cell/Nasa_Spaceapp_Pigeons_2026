@@ -30,3 +30,11 @@ if st.sidebar.button("Analyze"):
         )
 else:
     st.info("Enter a location and click Analyze.")
+
+    #explains why a crop does not work or does
+
+        if st.button(f"Why {r['crop']}?", key=r['crop']):
+            from farm_rotation.adapters.nasa_power import get_climate
+            climate = get_climate(lat, lon)
+            explanation = explain_crop(r['crop'], r['score'], climate)
+            st.info(explanation)
