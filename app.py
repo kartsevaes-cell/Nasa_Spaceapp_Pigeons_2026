@@ -11,10 +11,6 @@ if "data" not in st.session_state:
     st.session_state.data = None
 if "filtered" not in st.session_state:
     st.session_state.filtered = []
-if "explanation" not in st.session_state:
-    st.session_state.explanation = None
-if "explain_crop_name" not in st.session_state:
-    st.session_state.explain_crop_name = None
 
 # Sidebar
 st.sidebar.header("Location")
@@ -75,9 +71,8 @@ if st.sidebar.button("Analyze"):
             continue
         filtered.append(r)
     st.session_state.filtered = filtered
-    st.session_state.explanation = None  # clear old explanation
 
-# Show results
+# Display results
 if st.session_state.data and st.session_state.filtered:
     data = st.session_state.data
     filtered = st.session_state.filtered
@@ -88,6 +83,7 @@ if st.session_state.data and st.session_state.filtered:
 
     st.subheader(f"Top Recommendations ({len(filtered)} crops)")
 
+    # Show crop list
     for i, r in enumerate(filtered[:10], 1):
         green = int(200 * (r["score"] / 100)) + 55
         color = f"rgb(0, {green}, 0)"
@@ -102,19 +98,20 @@ if st.session_state.data and st.session_state.filtered:
             unsafe_allow_html=True
         )
 
-        if st.button(f"Why {r['crop']}?", key=f"why_{i}_{r['crop']}"):
-            try:
-                climate = get_climate(lat, lon)
-                explanation = explain_crop(r["crop_data"], r["score"], climate)
-                st.session_state.explanation = explanation
-                st.session_state.explain_crop_name = r["crop"]
-            except Exception as e:
-                st.session_state.explanation = f"Could not generate explanation: {e}"
-                st.session_state.explain_crop_name = r["crop"]
+    # Explanation selector (more reliable than buttons)
+    st.subheader("Get explanation")
+    crop_names = [r["crop"] for r in filtered[:10]]
+    selected = st.selectbox("Choose a crop to explain", ["-- select --"] + crop_names)
 
-    # Show the explanation if one was requested
-    if st.session_state.explanation:
-        st.info(f"**Why {st.session_state.explain_crop_name}?**\n\n{st.session_state.explanation}")
+    if selected != "-- select --":
+        # Find the selected crop data
+        selected_crop = next(r for r in filtered if r["crop"] == selected)
+        try:
+            climate = get_climate(lat, lon)
+            explanation = explain_crop(selected_crop["crop_data"], selected_crop["score"], climate)
+            st.info(explanation)
+        except Exception as e:
+            st.error(f"Explanation failed: {e}")
 
     st.subheader("Suggested Rotations (3 years)")
     for idx, rot in enumerate(rotations[:3], 1):
