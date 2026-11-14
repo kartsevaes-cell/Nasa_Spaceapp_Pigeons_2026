@@ -1,7 +1,7 @@
 import streamlit as st
 import folium
 from streamlit_folium import st_folium
-from farm_rotation.services import analyze_farm, explain_crop
+from farm_rotation.services import analyze_farm, explain_crop, analyze_farm_with_rotations
 from farm_rotation.adapters.nasa_power import get_climate
 
 st.set_page_config(page_title="Farm Rotation", layout="wide")
@@ -36,7 +36,7 @@ m = folium.Map(location=[lat, lon], zoom_start=6)
 
 if st.sidebar.button("Analyze"):
     with st.spinner("Fetching NASA data and scoring crops..."):
-        results = analyze_farm(lat, lon, soil_manual)   # soil added here
+        results = analyze_farm(lat, lon, soil_manual)
     
     # Apply filters
     filtered = []
@@ -88,6 +88,14 @@ if st.sidebar.button("Analyze"):
                 climate = get_climate(lat, lon)
                 explanation = explain_crop(r["crop_data"], r["score"], climate)
                 st.info(explanation)
+
+        # Rotations
+        full = analyze_farm_with_rotations(lat, lon, soil_manual)
+        st.subheader("Suggested Rotations (3 years)")
+        for idx, rot in enumerate(full["rotations"][:3], 1):
+            names = " → ".join([c["crop"] for c in rot])
+            avg_score = sum(c["score"] for c in rot) / len(rot)
+            st.markdown(f"**Rotation {idx}:** {names}  \nAverage score: {avg_score:.0f}/100")
 else:
     folium.Marker([lat, lon], popup="Selected location").add_to(m)
 
