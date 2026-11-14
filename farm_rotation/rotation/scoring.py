@@ -1,57 +1,41 @@
-def score_crop(crop, climate, priorities=None):
-    """
-    Score a crop from 0-100 based on climate fit.
-    """
-    score = 40  # base score
+def score_crop(crop, climate, soil=None, weights=None):
+    if weights is None:
+        weights = {"climate": 0.6, "soil_health": 0.25, "water": 0.15}
 
+    score = 0
     temp = climate["temperature_c"]
     rain = climate["precipitation_mm"]
 
-    # Temperature suitability
+    # Climate fit (0-100)
+    climate_score = 40
     if crop["temp_min_c"] <= temp <= crop["temp_max_c"]:
-        score += 35
+        climate_score += 35
     elif abs(temp - crop["temp_min_c"]) <= 5 or abs(temp - crop["temp_max_c"]) <= 5:
-        score += 15
-
-    # Rainfall suitability
+        climate_score += 15
     if crop["rainfall_min_mm"] <= rain <= crop["rainfall_max_mm"]:
-        score += 25
-    elif abs(rain - crop["rainfall_min_mm"]) <= 150 or abs(rain - crop["rainfall_max_mm"]) <= 150:
-        score += 10
+        climate_score += 25
+    climate_score = min(climate_score, 100)
 
-    # Bonus for nitrogen-fixing crops (soil health)
-    if crop.get("nitrogen_fixing") is True or str(crop.get("nitrogen_fixing")).lower() == "true":
-        score += 10
-
-    return min(max(score, 0), 100)
-
-def score_crop(crop, climate, soil=None):
-    score = 40
-
-    temp = climate["temperature_c"]
-    rain = climate["precipitation_mm"]
-
-    # Temperature
-    if crop["temp_min_c"] <= temp <= crop["temp_max_c"]:
-        score += 35
-    elif abs(temp - crop["temp_min_c"]) <= 5 or abs(temp - crop["temp_max_c"]) <= 5:
-        score += 15
-
-    # Rainfall
-    if crop["rainfall_min_mm"] <= rain <= crop["rainfall_max_mm"]:
-        score += 25
-    elif abs(rain - crop["rainfall_min_mm"]) <= 150 or abs(rain - crop["rainfall_max_mm"]) <= 150:
-        score += 10
-
-    # Nitrogen fixing bonus
+    # Soil health bonus
+    soil_score = 50
     if str(crop.get("nitrogen_fixing", "")).lower() in ("true", "1", "yes"):
-        score += 10
+        soil_score += 30
+    if crop.get("soil_health_score", 0) >= 4:
+        soil_score += 20
+    soil_score = min(soil_score, 100)
 
-    # Simple soil adjustment
-    if soil:
-        if soil.get("drainage") == "Poor" and crop.get("water_use") == "High":
-            score -= 15
-        if soil.get("ph", 6.5) < 5.5 and crop.get("category") == "Legume":
-            score -= 10
+    # Water fit
+    water_score = 70
+    if crop.get("water_use") == "High" and rain < 500:
+        water_score -= 30
+    elif crop.get("water_use") == "Low":
+        water_score += 15
+    water_score = max(0, min(water_score, 100))
 
-    return min(max(score, 0), 100)
+    # Weighted total
+    total = (
+        climate_score * weights["climate"] +
+        soil_score * weights["soil_health"] +
+        water_score * weights["water"]
+    )
+    return round(total)
