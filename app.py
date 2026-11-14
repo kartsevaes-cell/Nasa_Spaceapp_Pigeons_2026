@@ -1,9 +1,7 @@
 import streamlit as st
-import folium
-from streamlit_folium import st_folium
+import pandas as pd
 from farm_rotation.services import analyze_farm, explain_crop
 from farm_rotation.adapters.nasa_power import get_climate
-import pandas as pd
 
 st.set_page_config(page_title="Farm Rotation", layout="wide")
 st.title("Farm Rotation Decision Support")
@@ -43,13 +41,9 @@ category = st.sidebar.selectbox(
     ["All", "Cereal", "Legume", "Oilseed", "Root/Tuber", "Cover Crop", "Forage/Legume"]
 )
 
-# Reliable map (uses Esri World Street Map – rarely blocked)
-m = folium.Map(
-    location=[lat, lon],
-    zoom_start=6,
-    tiles="https://server.arcgisonline.com/ArcGIS/rest/services/World_Street_Map/MapServer/tile/{z}/{y}/{x}",
-    attr="Esri"
-)
+# Simple built-in map (no external tile requests)
+st.subheader("Location")
+st.map(pd.DataFrame({"lat": [lat], "lon": [lon]}), zoom=6)
 
 if st.sidebar.button("Analyze"):
     with st.spinner("Fetching data and scoring crops..."):
@@ -79,21 +73,6 @@ if st.sidebar.button("Analyze"):
     if not filtered:
         st.warning("No crops match the filters.")
     else:
-        top = filtered[0]
-        score = top["score"]
-        green = int(200 * (score / 100)) + 55
-        color = f"#{0:02x}{green:02x}{0:02x}"
-
-        folium.CircleMarker(
-            location=[lat, lon],
-            radius=15,
-            color=color,
-            fill=True,
-            fill_color=color,
-            fill_opacity=0.7,
-            popup=f"Best: {top['crop']} ({score}/100)"
-        ).add_to(m)
-
         st.info(f"Location terrain: **{landscape['terrain']}** — Elevation: {landscape['elevation_m']} m")
 
         st.subheader(f"Top Recommendations ({len(filtered)} crops)")
@@ -132,12 +111,3 @@ if st.sidebar.button("Analyze"):
             file_name="crop_recommendations.csv",
             mime="text/csv",
         )
-else:
-    folium.Marker([lat, lon], popup="Selected location").add_to(m)
-
-# Display map
-st_folium(m, width=700, height=450)
-
-# Fallback simple map (always works)
-st.caption("Simple location view (fallback)")
-st.map(pd.DataFrame({"lat": [lat], "lon": [lon]}))
