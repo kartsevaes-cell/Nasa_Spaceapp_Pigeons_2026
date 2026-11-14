@@ -2,6 +2,7 @@ from farm_rotation.adapters.nasa_power import get_climate
 from farm_rotation.adapters.crops import load_crops
 from farm_rotation.rotation.scoring import score_crop
 from farm_rotation.adapters.soil import get_soil
+from farm_rotation.rotation.generator import generate_rotations
 
 def analyze_farm(lat, lon, soil_manual=None):
     climate = get_climate(lat, lon)
@@ -10,7 +11,7 @@ def analyze_farm(lat, lon, soil_manual=None):
     
     results = []
     for _, crop in crops.iterrows():
-        score = score_crop(crop, climate, soil)  # pass soil
+        score = score_crop(crop, climate, soil)
         results.append({
             "crop": crop["crop_name"],
             "score": score,
@@ -19,21 +20,14 @@ def analyze_farm(lat, lon, soil_manual=None):
         })
     
     return sorted(results, key=lambda x: x["score"], reverse=True)
-def analyze_farm(lat, lon):
-    climate = get_climate(lat, lon)
-    crops = load_crops()
-    
-    results = []
-    for _, crop in crops.iterrows():
-        score = score_crop(crop, climate)
-        results.append({
-            "crop": crop["crop_name"],
-            "score": score,
-            "nitrogen_fixing": crop["nitrogen_fixing"],
-            "crop_data": crop.to_dict()
-        })
-    
-    return sorted(results, key=lambda x: x["score"], reverse=True)
+
+def analyze_farm_with_rotations(lat, lon, soil_manual=None, years=3):
+    results = analyze_farm(lat, lon, soil_manual)
+    rotations = generate_rotations(results, years=years)
+    return {
+        "crops": results,
+        "rotations": rotations
+    }
 
 def explain_crop(crop: dict, score: int, climate: dict) -> str:
     """
@@ -60,4 +54,16 @@ def explain_crop(crop: dict, score: int, climate: dict) -> str:
         if tmin <= temp <= tmax:
             reasons.append(f"Temperature ({temp}°C) is within the ideal range ({tmin}–{tmax}°C).")
         elif temp < tmin:
-            reasons.append
+            reasons.append(f"Temperature ({temp}°C) is below the preferred minimum ({tmin}°C).")
+        else:
+            reasons.append(f"Temperature ({temp}°C) is above the preferred maximum ({tmax}°C).")
+    
+    rmin = crop.get("rainfall_min_mm")
+    rmax = crop.get("rainfall_max_mm")
+    if rmin is not None and rmax is not None:
+        if rmin <= rain <= rmax:
+            reasons.append(f"Rainfall ({rain:.0f} mm) fits the crop’s needs ({rmin}–{rmax} mm).")
+        elif rain < rmin:
+            reasons.append(f"Rainfall ({rain:.0f} mm) is lower than recommended ({rmin} mm). Irrigation may be needed.")
+        else:
+            reasons.append(f"Rainfall ({rain:.0f} mm) is higher than typical ({rmax} mm).
