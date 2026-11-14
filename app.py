@@ -8,7 +8,7 @@ import pandas as pd
 st.set_page_config(page_title="Farm Rotation", layout="wide")
 st.title("Farm Rotation Decision Support")
 
-# Sidebar
+# Sidebar (same as before)
 st.sidebar.header("Location")
 lat = st.sidebar.number_input("Latitude", value=41.6, format="%.4f")
 lon = st.sidebar.number_input("Longitude", value=-93.6, format="%.4f")
@@ -43,19 +43,18 @@ category = st.sidebar.selectbox(
     ["All", "Cereal", "Legume", "Oilseed", "Root/Tuber", "Cover Crop", "Forage/Legume"]
 )
 
-# Map with CartoDB tiles (avoids OpenStreetMap blocking)
+# Reliable map (uses Esri World Street Map – rarely blocked)
 m = folium.Map(
     location=[lat, lon],
     zoom_start=6,
-    tiles="CartoDB positron",
-    attr="© OpenStreetMap contributors © CARTO"
+    tiles="https://server.arcgisonline.com/ArcGIS/rest/services/World_Street_Map/MapServer/tile/{z}/{y}/{x}",
+    attr="Esri"
 )
 
 if st.sidebar.button("Analyze"):
     with st.spinner("Fetching data and scoring crops..."):
         data = analyze_farm(lat, lon, soil_manual, weights)
 
-    # Error handling
     if not data.get("success"):
         st.error(f"Error: {data.get('error', 'Unknown error')}")
         st.stop()
@@ -66,7 +65,6 @@ if st.sidebar.button("Analyze"):
 
     st.sidebar.success(f"Terrain: {landscape['terrain']} ({landscape['elevation_m']} m)")
 
-    # Apply filters
     filtered = []
     for r in results:
         if r["score"] < min_score:
@@ -81,7 +79,6 @@ if st.sidebar.button("Analyze"):
     if not filtered:
         st.warning("No crops match the filters.")
     else:
-        # Colored marker
         top = filtered[0]
         score = top["score"]
         green = int(200 * (score / 100)) + 55
@@ -99,7 +96,6 @@ if st.sidebar.button("Analyze"):
 
         st.info(f"Location terrain: **{landscape['terrain']}** — Elevation: {landscape['elevation_m']} m")
 
-        # Results
         st.subheader(f"Top Recommendations ({len(filtered)} crops)")
         for i, r in enumerate(filtered[:10], 1):
             green = int(200 * (r["score"] / 100)) + 55
@@ -119,14 +115,12 @@ if st.sidebar.button("Analyze"):
                 explanation = explain_crop(r["crop_data"], r["score"], climate)
                 st.info(explanation)
 
-        # Rotations
         st.subheader("Suggested Rotations (3 years)")
         for idx, rot in enumerate(rotations[:3], 1):
             names = " → ".join([c["crop"] for c in rot])
             avg_score = sum(c["score"] for c in rot) / len(rot)
             st.markdown(f"**Rotation {idx}:** {names}  \nAverage score: {avg_score:.0f}/100")
 
-        # Export
         export_df = pd.DataFrame([
             {"crop": r["crop"], "score": r["score"], "nitrogen_fixing": r["nitrogen_fixing"]}
             for r in filtered
@@ -141,4 +135,9 @@ if st.sidebar.button("Analyze"):
 else:
     folium.Marker([lat, lon], popup="Selected location").add_to(m)
 
+# Display map
 st_folium(m, width=700, height=450)
+
+# Fallback simple map (always works)
+st.caption("Simple location view (fallback)")
+st.map(pd.DataFrame({"lat": [lat], "lon": [lon]}))
