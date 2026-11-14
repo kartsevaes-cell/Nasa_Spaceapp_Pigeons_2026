@@ -6,11 +6,15 @@ from farm_rotation.adapters.nasa_power import get_climate
 st.set_page_config(page_title="Farm Rotation", layout="wide")
 st.title("Farm Rotation Decision Support")
 
-# Initialize session state
+# Session state
 if "data" not in st.session_state:
     st.session_state.data = None
 if "filtered" not in st.session_state:
     st.session_state.filtered = []
+if "explanation" not in st.session_state:
+    st.session_state.explanation = None
+if "explain_crop_name" not in st.session_state:
+    st.session_state.explain_crop_name = None
 
 # Sidebar
 st.sidebar.header("Location")
@@ -60,7 +64,6 @@ if st.sidebar.button("Analyze"):
     st.session_state.data = data
     results = data["crops"]
 
-    # Apply filters
     filtered = []
     for r in results:
         if r["score"] < min_score:
@@ -72,8 +75,9 @@ if st.sidebar.button("Analyze"):
             continue
         filtered.append(r)
     st.session_state.filtered = filtered
+    st.session_state.explanation = None  # clear old explanation
 
-# Display results if we have them
+# Show results
 if st.session_state.data and st.session_state.filtered:
     data = st.session_state.data
     filtered = st.session_state.filtered
@@ -83,6 +87,7 @@ if st.session_state.data and st.session_state.filtered:
     st.success(f"Terrain: {landscape['terrain']} ({landscape['elevation_m']} m)")
 
     st.subheader(f"Top Recommendations ({len(filtered)} crops)")
+
     for i, r in enumerate(filtered[:10], 1):
         green = int(200 * (r["score"] / 100)) + 55
         color = f"rgb(0, {green}, 0)"
@@ -96,10 +101,20 @@ if st.session_state.data and st.session_state.filtered:
             """,
             unsafe_allow_html=True
         )
-        if st.button(f"Why {r['crop']}?", key=f"why_{r['crop']}"):
-            climate = get_climate(lat, lon)
-            explanation = explain_crop(r["crop_data"], r["score"], climate)
-            st.info(explanation)
+
+        if st.button(f"Why {r['crop']}?", key=f"why_{i}_{r['crop']}"):
+            try:
+                climate = get_climate(lat, lon)
+                explanation = explain_crop(r["crop_data"], r["score"], climate)
+                st.session_state.explanation = explanation
+                st.session_state.explain_crop_name = r["crop"]
+            except Exception as e:
+                st.session_state.explanation = f"Could not generate explanation: {e}"
+                st.session_state.explain_crop_name = r["crop"]
+
+    # Show the explanation if one was requested
+    if st.session_state.explanation:
+        st.info(f"**Why {st.session_state.explain_crop_name}?**\n\n{st.session_state.explanation}")
 
     st.subheader("Suggested Rotations (3 years)")
     for idx, rot in enumerate(rotations[:3], 1):
