@@ -43,7 +43,13 @@ category = st.sidebar.selectbox(
     ["All", "Cereal", "Legume", "Oilseed", "Root/Tuber", "Cover Crop", "Forage/Legume"]
 )
 
-m = folium.Map(location=[lat, lon], zoom_start=6)
+# Map with CartoDB tiles (avoids OpenStreetMap blocking)
+m = folium.Map(
+    location=[lat, lon],
+    zoom_start=6,
+    tiles="CartoDB positron",
+    attr="© OpenStreetMap contributors © CARTO"
+)
 
 if st.sidebar.button("Analyze"):
     with st.spinner("Fetching data and scoring crops..."):
